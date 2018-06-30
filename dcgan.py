@@ -24,123 +24,107 @@ class DCGAN(object):
         self.G = None   # generator
         self.AM = None  # adversarial model
         self.DM = None  # discriminator model
-    
+
     # Defining a Discriminator that tells how real an image fed to it is
     def discriminator(self):
         if self.D:
             return self.D
-        
+
         self.D = Sequential()
-    
+
         depth = 64
-        dropout = 0.4    
+        dropout = 0.4
         input_shape = (self.img_rows, self.img_cols, self.channel)
-        
+
         self.D.add(Conv2D(depth * 1, 5, strides = 2, input_shape = input_shape, padding = "same"))
         self.D.add(LeakyReLU(alpha = 0.2))
         self.D.add(Dropout(dropout))
-        
+
         self.D.add(Conv2D(depth*2, 5, strides = 2, padding = "same"))
         self.D.add(LeakyReLU(alpha = 0.2))
         self.D.add(Dropout(dropout))
-        
-        self.D.add(Conv2D(depth*4, 5, strides = 2, padding = "same"))
-        self.D.add(LeakyReLU(alpha = 0.2))
-        self.D.add(Dropout(dropout))
-        
-        self.D.add(Conv2D(depth*8, 5, strides = 1, padding = "same"))
-        self.D.add(LeakyReLU(alpha = 0.2))
-        self.D.add(Dropout(dropout))
-        
+
         # Output: Probability
         self.D.add(Flatten())
         self.D.add(Dense(1, activation = "sigmoid"))
         self.D.summary()
-        
+
         return self.D
-        
-    # Defining a Generator that generates a grayscale image    
+
+    # Defining a Generator that generates a grayscale image
     def generator(self):
         if self.G:
             return self.G
-        
+
         self.G = Sequential()
-        
+
         depth = 256
         dropout = 0.4
         dim = 7
-        
+
         self.G.add(Dense(dim * dim * depth, input_dim = 100))
         self.G.add(BatchNormalization(momentum = 0.9))
         self.G.add(Activation("relu"))
         self.G.add(Reshape((dim, dim, depth)))
         self.G.add(Dropout(dropout))
-        
+
         self.G.add(UpSampling2D())
         self.G.add(Conv2DTranspose(int(depth / 2), 5, padding = "same"))
         self.G.add(BatchNormalization(momentum = 0.9))
         self.G.add(Activation("relu"))
         self.G.add(UpSampling2D())
-        
-        self.G.add(Conv2DTranspose(int(depth / 4), 5, padding = "same"))
-        self.G.add(BatchNormalization(momentum = 0.9))
-        self.G.add(Activation("relu"))
-        
-        self.G.add(Conv2DTranspose(int(depth / 8), 5, padding = "same"))
-        self.G.add(BatchNormalization(momentum = 0.9))
-        self.G.add(Activation("relu"))
-        
+
         # Output: A grayscale image
         self.G.add(Conv2DTranspose(1, 5, padding = "same"))
         self.G.add(Activation("sigmoid"))
         self.G.summary()
-        
+
         return self.G
-    
+
     # Creating a discriminator model using the discriminator()
     def discriminator_model(self):
         if self.DM:
             return self.DM
-        
-        optimizer = RMSprop(lr = 0.0002, decay = 6e-8)
-        
+
+        optimizer = RMSprop(lr = 0.0008, clipvalue = 1.0, decay = 6e-8)
+
         self.DM = Sequential()
         self.DM.add(self.discriminator())
         self.DM.compile(loss = "binary_crossentropy", optimizer = optimizer, metrics = ["accuracy"])
-        
+
         return self.DM
-    
+
     # Creating an adversarial model using the generator() and discriminator()
     def adversarial_model(self):
         if self.AM:
             return self.AM
-        
-        optimizer = RMSprop(lr = 0.0001, decay = 3e-8)
-        
+
+        optimizer = RMSprop(lr = 0.0004, clipvalue = 1.0, decay = 3e-8)
+
         self.AM = Sequential()
         self.AM.add(self.generator())
         self.AM.add(self.discriminator())
         self.AM.compile(loss = "binary_crossentropy", optimizer = optimizer, metrics = ["accuracy"])
-            
+
         return self.AM
-    
+
 # Class to train the DCGAN and generating images
 class TRAIN_DCGAN(object):
     def __init__(self):
         self.img_rows = 28
         self.img_cols = 28
         self.channel = 1
-        
+
         self.x_train = input_data.read_data_sets("mnist",\
         	one_hot=True).train.images
         self.x_train = self.x_train.reshape(-1, self.img_rows,\
         	self.img_cols, 1).astype(np.float32)
-        
+
         self.DCGAN = DCGAN()
         self.discriminator = self.DCGAN.discriminator_model()
         self.adversarial = self.DCGAN.adversarial_model()
         self.generator = self.DCGAN.generator()
-        
+
     def train(self, train_steps = 10, batch_size = 256, save_interval = 0):
         noise_input = None
         if save_interval > 0:
@@ -190,13 +174,10 @@ class TRAIN_DCGAN(object):
             plt.savefig(filename)
             plt.close("all")
         else:
-            plt.show() 
-        
+            plt.show()
+
 if __name__ == '__main__':
     train_dcgan = TRAIN_DCGAN()
-    train_dcgan.train(train_steps = 10, batch_size = 256, save_interval = 500)
+    train_dcgan.train(train_steps = 100, batch_size = 256, save_interval = 500)
     train_dcgan.plot_images(fake = True)
     train_dcgan.plot_images(fake = False, save2file = True)
-    
-    
-    
